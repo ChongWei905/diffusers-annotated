@@ -344,20 +344,25 @@ class StableDiffusionPipeline(
             batch_size = prompt_embeds.shape[0]
 
         if prompt_embeds is None:
+            # 如果没有prompt_embeds，则通过输入的prompt生成
             # textual inversion: process multi-vector tokens if necessary
             if isinstance(self, TextualInversionLoaderMixin):
                 prompt = self.maybe_convert_prompt(prompt, self.tokenizer)
 
+            from transformers.utils import PaddingStrategy
+            # padding 填充策略为补齐到模型的最大长度
             text_inputs = self.tokenizer(
                 prompt,
-                padding="max_length",
+                padding=PaddingStrategy.MAX_LENGTH,
                 max_length=self.tokenizer.model_max_length,
                 truncation=True,
                 return_tensors="pt",
             )
             text_input_ids = text_inputs.input_ids
-            untruncated_ids = self.tokenizer(prompt, padding="longest", return_tensors="pt").input_ids
+            # 未截断部分
+            untruncated_ids = self.tokenizer(prompt, padding=PaddingStrategy.LONGEST, return_tensors="pt").input_ids
 
+            # 针对截断部分进行警告提示
             if untruncated_ids.shape[-1] >= text_input_ids.shape[-1] and not torch.equal(
                 text_input_ids, untruncated_ids
             ):
@@ -369,6 +374,7 @@ class StableDiffusionPipeline(
                     f" {self.tokenizer.model_max_length} tokens: {removed_text}"
                 )
 
+            # 有attention mask则开启
             if hasattr(self.text_encoder.config, "use_attention_mask") and self.text_encoder.config.use_attention_mask:
                 attention_mask = text_inputs.attention_mask.to(device)
             else:
@@ -651,6 +657,7 @@ class StableDiffusionPipeline(
                     f"`ip_adapter_image_embeds` has to be a list of 3D or 4D tensors but is {ip_adapter_image_embeds[0].ndim}D"
                 )
 
+    # 准备噪声
     def prepare_latents(self, batch_size, num_channels_latents, height, width, dtype, device, generator, latents=None):
         shape = (batch_size, num_channels_latents, height // self.vae_scale_factor, width // self.vae_scale_factor)
         if isinstance(generator, list) and len(generator) != batch_size:
@@ -660,6 +667,7 @@ class StableDiffusionPipeline(
             )
 
         if latents is None:
+            # 随机噪声tensor
             latents = randn_tensor(shape, generator=generator, device=device, dtype=dtype)
         else:
             latents = latents.to(device)
@@ -929,6 +937,7 @@ class StableDiffusionPipeline(
         timesteps, num_inference_steps = retrieve_timesteps(self.scheduler, num_inference_steps, device, timesteps)
 
         # 5. Prepare latent variables
+        # 以unet的设置中的下采样channel维度定义噪声的维度
         num_channels_latents = self.unet.config.in_channels
         latents = self.prepare_latents(
             batch_size * num_images_per_prompt,
@@ -945,6 +954,7 @@ class StableDiffusionPipeline(
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
 
         # 6.1 Add image embeds for IP-Adapter
+        # ip-adapter 使用图像提示生成图像的能力
         added_cond_kwargs = (
             {"image_embeds": image_embeds}
             if (ip_adapter_image is not None or ip_adapter_image_embeds is not None)
@@ -952,6 +962,7 @@ class StableDiffusionPipeline(
         )
 
         # 6.2 Optionally get Guidance Scale Embedding
+        # 分类器引导比例(classifier guidance scale)
         timestep_cond = None
         if self.unet.config.time_cond_proj_dim is not None:
             guidance_scale_tensor = torch.tensor(self.guidance_scale - 1).repeat(batch_size * num_images_per_prompt)
