@@ -119,6 +119,7 @@ class ConfigMixin:
             internal_dict = kwargs
         else:
             previous_dict = dict(self._internal_dict)
+            # 增加internal_dict的内容，写入到配置中去
             internal_dict = {**self._internal_dict, **kwargs}
             logger.debug(f"Updating config from {previous_dict} to {internal_dict}")
 

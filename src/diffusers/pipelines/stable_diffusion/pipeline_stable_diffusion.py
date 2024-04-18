@@ -162,11 +162,11 @@ class StableDiffusionPipeline(
 
     def __init__(
         self,
-        vae: AutoencoderKL,
-        text_encoder: CLIPTextModel,
-        tokenizer: CLIPTokenizer,
-        unet: UNet2DConditionModel,
-        scheduler: KarrasDiffusionSchedulers,
+        vae: AutoencoderKL,  # 变分自编码器，把图像编码到特征
+        text_encoder: CLIPTextModel,  # 把tokens编码为一串向量，控制扩散模型的生成
+        tokenizer: CLIPTokenizer,  # 输入的文本按照字典编码为token
+        unet: UNet2DConditionModel,  # unet
+        scheduler: KarrasDiffusionSchedulers,  # scheduler 实现逆向扩散，
         safety_checker: StableDiffusionSafetyChecker,
         feature_extractor: CLIPImageProcessor,
         image_encoder: CLIPVisionModelWithProjection = None,
@@ -238,7 +238,7 @@ class StableDiffusionPipeline(
             new_config["sample_size"] = 64
             unet._internal_dict = FrozenDict(new_config)
 
-        self.register_modules(
+        self.register_modules(  # 汇总所需的模块
             vae=vae,
             text_encoder=text_encoder,
             tokenizer=tokenizer,
@@ -734,12 +734,12 @@ class StableDiffusionPipeline(
     @replace_example_docstring(EXAMPLE_DOC_STRING)
     def __call__(
         self,
-        prompt: Union[str, List[str]] = None,
-        height: Optional[int] = None,
-        width: Optional[int] = None,
-        num_inference_steps: int = 50,
+        prompt: Union[str, List[str]] = None,  # 提示词
+        height: Optional[int] = None,  # 图像高度
+        width: Optional[int] = None,  # 图像宽度
+        num_inference_steps: int = 50,  # 步数
         timesteps: List[int] = None,
-        guidance_scale: float = 7.5,
+        guidance_scale: float = 7.5,  # 共振频率激励
         negative_prompt: Optional[Union[str, List[str]]] = None,
         num_images_per_prompt: Optional[int] = 1,
         eta: float = 0.0,
@@ -875,6 +875,7 @@ class StableDiffusionPipeline(
             callback_on_step_end_tensor_inputs,
         )
 
+        # 输入参数转类的私有变量
         self._guidance_scale = guidance_scale
         self._guidance_rescale = guidance_rescale
         self._clip_skip = clip_skip
@@ -882,6 +883,7 @@ class StableDiffusionPipeline(
         self._interrupt = False
 
         # 2. Define call parameters
+        # 定义batch size
         if prompt is not None and isinstance(prompt, str):
             batch_size = 1
         elif prompt is not None and isinstance(prompt, list):

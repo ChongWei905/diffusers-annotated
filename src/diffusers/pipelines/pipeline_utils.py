@@ -150,7 +150,7 @@ class DiffusionPipeline(ConfigMixin, PushToHubMixin):
     _load_connected_pipes = False
     _is_onnx = False
 
-    def register_modules(self, **kwargs):
+    def register_modules(self, **kwargs):  # 注册模块
         for name, module in kwargs.items():
             # retrieve library
             if module is None or isinstance(module, (tuple, list)) and module[0] is None:

@@ -230,9 +230,11 @@ def warn_deprecated_model_variant(pretrained_model_name_or_path, token, variant,
 def _unwrap_model(model):
     """Unwraps a model."""
     if is_compiled_module(model):
+        # 检查并返回原model
         model = model._orig_mod
 
     if is_peft_available():
+        # 不仅torch打包的需要解包，peft打包的也一样
         from peft import PeftModel
 
         if isinstance(model, PeftModel):
@@ -722,14 +724,19 @@ def load_sub_model(
 
 def _fetch_class_library_tuple(module):
     # import it here to avoid circular import
-    diffusers_module = importlib.import_module(__name__.split(".")[0])
+    diffusers_module = importlib.import_module(__name__.split(".")[0])  # 获取diffusers的全部模块
     pipelines = getattr(diffusers_module, "pipelines")
 
     # register the config from the original module, not the dynamo compiled one
+    # 检查没有被torch.compile的模块，torch.compile能将PyTorch代码加速为优化的内核
+    # 这里是在试图拆封被打包的模块
     not_compiled_module = _unwrap_model(module)
+
+    # 默认是diffusers/transformer等第一级模块名称
     library = not_compiled_module.__module__.split(".")[0]
 
     # check if the module is a pipeline module
+    # 这部分通过模块路径的拆解获取是否为pipeline
     module_path_items = not_compiled_module.__module__.split(".")
     pipeline_dir = module_path_items[-2] if len(module_path_items) > 2 else None
 
@@ -741,6 +748,7 @@ def _fetch_class_library_tuple(module):
     # folder so we set the library to module name.
     if is_pipeline_module:
         library = pipeline_dir
+    # diffusers transformers onnxruntime.training
     elif library not in LOADABLE_CLASSES:
         library = not_compiled_module.__module__
 
